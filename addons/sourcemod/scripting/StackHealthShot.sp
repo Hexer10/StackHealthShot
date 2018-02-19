@@ -9,7 +9,6 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define DEBUG
 
 bool bUsing[MAXPLAYERS+1];
 Handle hUseHS[MAXPLAYERS+1];
