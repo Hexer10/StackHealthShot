@@ -4,10 +4,12 @@
 #include <sdkhooks>
 
 #define PLUGIN_NAME           "StackHealthShot"
-#define PLUGIN_VERSION        "1.1"
+#define PLUGIN_VERSION        "1.11"
 
 #pragma semicolon 1
 #pragma newdecls required
+
+#define DEBUG
 
 bool bUsing[MAXPLAYERS+1];
 Handle hUseHS[MAXPLAYERS+1];
@@ -26,7 +28,19 @@ public void OnPluginStart()
 {
 	HookEvent("weapon_fire", Event_WeaponFire, EventHookMode_Pre);
 	HookEvent("item_equip", Event_ItemEquip);
+
+	#if defined DEBUG
+	RegConsoleCmd("sm_hs", Cmd_HS);
+	#endif
 }
+
+#if defined DEBUG
+public Action Cmd_HS(int client, int args)
+{
+	GivePlayerItem(client, "weapon_healthshot");
+	return Plugin_Handled;
+}
+#endif
 
 public void OnClientDisconnect_Post(int client)
 {
@@ -39,9 +53,9 @@ public void OnClientDisconnect_Post(int client)
 public Action Event_ItemEquip(Event event, const char[] name, bool dontBroadcast)
 {
 	int client = GetClientOfUserId(event.GetInt("userid"));
-	if (hUseHS[client] != null)
+	if (bUsing[client])
 	{
-		SetEntityHealth(client, iRealLife[client]);
+		SetEntityHealth(client, iRealLife[client] - 50);
 		bUsing[client] = false;
 		delete hUseHS[client];
 	}
@@ -57,21 +71,22 @@ public Action Event_WeaponFire(Event event, const char[] name, bool dontBroadcas
 	{
 		if (bUsing[client])
 			return Plugin_Continue;
-		
+
 		int iHealth = GetClientHealth(client);
+		iRealLife[client] = iHealth + 50;
+
 		if (iHealth >= 100)
 			SetEntityHealth(client, 99);
 
-		DataPack data = new DataPack();
-		data.WriteCell(iHealth);
-		data.WriteCell(GetClientUserId(client));
-		
-		iRealLife[client] = iHealth;
 		bUsing[client] = true;
 		if (hUseHS[client] != null)
 			delete hUseHS[client];
 
-		hUseHS[client] = CreateDataTimer(1.5, Timer_UsedHS, data);
+		DataPack data = new DataPack();
+		data.WriteCell(GetClientUserId(client));
+		data.WriteCell(iHealth);
+
+		hUseHS[client] = CreateTimer(1.5, Timer_UsedHS, data);
 	}
 	return Plugin_Continue;
 }
@@ -80,7 +95,6 @@ public Action Timer_UsedHS(Handle timer, DataPack data)
 {
 	data.Reset();
 	int client = GetClientOfUserId(data.ReadCell());
-	int iHealth = data.ReadCell();
 
 	if (!client)
 	{
@@ -88,15 +102,8 @@ public Action Timer_UsedHS(Handle timer, DataPack data)
 		return;
 	}
 
-	if (!HasClientHS(client))
-	{
-		SetEntityHealth(client, iHealth);
-		bUsing[client] = false;
-		return;
-	}
-
 	bUsing[client] = false;
-	CreateDataTimer(0.2, Timer_UpdateLife, data);
+	CreateTimer(0.2, Timer_UpdateLife, data);
 	hUseHS[client] = null;
 }
 
@@ -115,22 +122,22 @@ public Action Timer_UpdateLife(Handle timer, DataPack data)
 	}
 }
 
-stock bool HasClientHS(int client)
-{
-	int weapon = GetClientActiveWeapon(client);
-	if (weapon == -1)
-		return false;
-		
-	char sWeapon[32];
-	GetEdictClassname(weapon, sWeapon, sizeof(sWeapon));
-	if (!StrEqual(sWeapon, "weapon_healthshot"))
-	{
-		return false;
-	}
-	return true;
-}
-
 stock int GetClientActiveWeapon(int client)
 {
 	return GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 }
+
+#if defined DEBUG
+public void OnGameFrame()
+{
+	static bool bSet = false;
+	if (!bSet)
+	{
+		SetHudTextParams(-1.0, -1.0, 0.1, 255, 50, 50, 255);
+	}
+	for (int i = 1; i <= MaxClients; i++)if (IsClientInGame(i))
+	{
+		ShowHudText(i, 1, "HP: %i		RHP: %i", GetClientHealth(i), iRealLife[i]);
+	}
+}
+#endif
