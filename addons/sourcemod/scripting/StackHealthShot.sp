@@ -4,7 +4,7 @@
 #include <sdkhooks>
 
 #define PLUGIN_NAME           "StackHealthShot"
-#define PLUGIN_VERSION        "1.11"
+#define PLUGIN_VERSION        "<TAG>"
 
 #pragma semicolon 1
 #pragma newdecls required
