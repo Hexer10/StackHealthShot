@@ -2,10 +2,9 @@
 #include <sdktools>
 #include <cstrike>
 #include <sdkhooks>
-#include <hexstocks>
 
 #define PLUGIN_NAME           "StackHealthShot"
-#define PLUGIN_VERSION        "1.0"
+#define PLUGIN_VERSION        "1.1"
 
 #pragma semicolon 1
 #pragma newdecls required
@@ -63,30 +62,32 @@ public Action Event_WeaponFire(Event event, const char[] name, bool dontBroadcas
 		if (iHealth >= 100)
 			SetEntityHealth(client, 99);
 
-		ArrayList data = new ArrayList();
-		data.Push(iHealth);
-		data.Push(GetClientUserId(client));
+		DataPack data = new DataPack();
+		data.WriteCell(iHealth);
+		data.WriteCell(GetClientUserId(client));
 		
 		iRealLife[client] = iHealth;
 		bUsing[client] = true;
 		if (hUseHS[client] != null)
 			delete hUseHS[client];
 
-		hUseHS[client] = CreateTimer(1.5, Timer_UsedHS, data);
+		hUseHS[client] = CreateDataTimer(1.5, Timer_UsedHS, data);
 	}
 	return Plugin_Continue;
 }
 
-public Action Timer_UsedHS(Handle timer, ArrayList data)
+public Action Timer_UsedHS(Handle timer, DataPack data)
 {
-	int client = GetClientOfUserId(data.Get(1));
+	data.Reset();
+	int client = GetClientOfUserId(data.ReadCell());
+	int iHealth = data.ReadCell();
+
 	if (!client)
 	{
 		bUsing[client] = false;
 		return;
 	}
 
-	int iHealth = data.Get(0);
 	if (!HasClientHS(client))
 	{
 		SetEntityHealth(client, iHealth);
@@ -95,30 +96,28 @@ public Action Timer_UsedHS(Handle timer, ArrayList data)
 	}
 
 	bUsing[client] = false;
-	CreateTimer(0.2, Timer_UpdateLife, data);
+	CreateDataTimer(0.2, Timer_UpdateLife, data);
 	hUseHS[client] = null;
 }
 
-public Action Timer_UpdateLife(Handle timer, ArrayList data)
+public Action Timer_UpdateLife(Handle timer, DataPack data)
 {
-	int client = GetClientOfUserId(data.Get(1));
+	data.Reset();
+	int client = GetClientOfUserId(data.ReadCell());
+	int iHealth = data.ReadCell();
+
 	if (!client)
 		return;
-	int iHealth = data.Get(0);
-	if (100 > iHealth > 50)
-	{
-		SetEntityHealth(client, iHealth + 50); //HP + 50 - 100
-	}
-	else if (iHealth >= 100)
+
+	if (iHealth > 50)
 	{
 		SetEntityHealth(client, iHealth + 50);
 	}
 }
 
-bool HasClientHS(int client)
+stock bool HasClientHS(int client)
 {
-	int weapon = GetPlayerActiveWeapon(client);
-	
+	int weapon = GetClientActiveWeapon(client);
 	if (weapon == -1)
 		return false;
 		
@@ -129,4 +128,9 @@ bool HasClientHS(int client)
 		return false;
 	}
 	return true;
+}
+
+stock int GetClientActiveWeapon(int client)
+{
+	return GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
 }
