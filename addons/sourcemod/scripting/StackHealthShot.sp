@@ -9,11 +9,15 @@
 #pragma semicolon 1
 #pragma newdecls required
 
-#define DEBUG
+//#define DEBUG
+
+Handle hUseHS[MAXPLAYERS+1];
+
+ConVar cv_iMaxHP;
+
+int iRealLife[MAXPLAYERS+1];
 
 bool bUsing[MAXPLAYERS+1];
-Handle hUseHS[MAXPLAYERS+1];
-int iRealLife[MAXPLAYERS+1];
 
 public Plugin myinfo =
 {
@@ -26,6 +30,9 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
+	cv_iMaxHP = CreateConVar("sm_healthshot_maxhp", "0", "Max HPs allowed using healthshots", _, true, 0.0);
+	AutoExecConfig();
+
 	HookEvent("weapon_fire", Event_WeaponFire, EventHookMode_Pre);
 	HookEvent("item_equip", Event_ItemEquip);
 
@@ -73,7 +80,14 @@ public Action Event_WeaponFire(Event event, const char[] name, bool dontBroadcas
 			return Plugin_Continue;
 
 		int iHealth = GetClientHealth(client);
+
+		if (iHealth >= cv_iMaxHP.IntValue)
+			return Plugin_Continue;
+
 		iRealLife[client] = iHealth + 50;
+
+		if (cv_iMaxHP.IntValue < iRealLife[client] && cv_iMaxHP.IntValue)
+			iRealLife[client] = cv_iMaxHP.IntValue;
 
 		if (iHealth >= 100)
 			SetEntityHealth(client, 99);
